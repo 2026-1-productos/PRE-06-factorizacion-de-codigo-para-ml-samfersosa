@@ -1,60 +1,36 @@
-#
-# Busque los mejores parametros de un modelo knn para predecir
-# la calidad del vino usando el dataset de calidad del vino tinto de UCI.
-#
-# Considere diferentes valores para la cantidad de vecinos
-#
-
-# importacion de librerias
-import pandas as pd
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsRegressor
 
-# descarga de datos
-url = "http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv"
-df = pd.read_csv(url, sep=";")
+from src.data import load_data, prepare_data, split_data
+from src.metrics import compute_metrics, print_metrics
 
-# preparacion de datos
-y = df["quality"]
-x = df.copy()
-x.pop("quality")
+N_NEIGHBORS_OPTIONS = [1, 3, 5, 7, 9, 11, 15]
 
-# dividir los datos en entrenamiento y testing
-(x_train, x_test, y_train, y_test) = train_test_split(
-    x,
-    y,
-    test_size=0.25,
-    random_state=123456,
-)
 
-# entrenar el modelo
-estimator = KNeighborsRegressor(n_neighbors=5)
-estimator.fit(x_train, y_train)
+def train_knn():
+    df = load_data()
+    x, y = prepare_data(df)
+    x_train, x_test, y_train, y_test = split_data(x, y)
 
-print()
-print(estimator, ":", sep="")
+    best_estimator = None
+    best_r2 = float("-inf")
 
-# Metricas de error durante entrenamiento
-y_pred = estimator.predict(x_train)
-mse = mean_squared_error(y_train, y_pred)
-mae = mean_absolute_error(y_train, y_pred)
-r2 = r2_score(y_train, y_pred)
+    for n_neighbors in N_NEIGHBORS_OPTIONS:
+        estimator = KNeighborsRegressor(n_neighbors=n_neighbors)
+        estimator.fit(x_train, y_train)
 
-print()
-print("Metricas de entrenamiento:")
-print(f"  MSE: {mse}")
-print(f"  MAE: {mae}")
-print(f"  R2: {r2}")
+        train_metrics = compute_metrics(estimator, x_train, y_train)
+        test_metrics = compute_metrics(estimator, x_test, y_test)
 
-# Metricas de error durante testing
-print()
-print("Metricas de testing:")
-y_pred = estimator.predict(x_test)
-mse = mean_squared_error(y_test, y_pred)
-mae = mean_absolute_error(y_test, y_pred)
-r2 = r2_score(y_test, y_pred)
+        print(f"\n{estimator}:")
+        print_metrics(train_metrics, "entrenamiento")
+        print_metrics(test_metrics, "testing")
 
-print(f"  MSE: {mse}")
-print(f"  MAE: {mae}")
-print(f"  R2: {r2}")
+        if test_metrics["r2"] > best_r2:
+            best_r2 = test_metrics["r2"]
+            best_estimator = estimator
+
+    return best_estimator, best_r2
+
+
+if __name__ == "__main__":
+    train_knn()
